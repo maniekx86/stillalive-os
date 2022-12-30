@@ -9,3 +9,5 @@ Notes:
 - Requires PC speaker
 - Precompiled image demo.bin requires boot loader, floppy.img is 1.44 MB floppy image (works when flashed on USB too)
 - Code is mess
+- Runs as x86 real mode opearting system
+Please don't use this as x86 operating system template. For template you can see my another project - BruhOS that this project is based on 
