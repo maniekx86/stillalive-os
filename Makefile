@@ -32,3 +32,4 @@ clean:
 .PHONY: runqe
 runqemu: floppy.img
 	qemu-system-i386 -fda ./floppy.img -soundhw pcspk
+
