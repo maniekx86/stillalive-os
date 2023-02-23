@@ -1,0 +1,5 @@
+fdd/
+*.swp
+*.elf
+*.bin
+*.o
