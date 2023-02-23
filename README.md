@@ -1,5 +1,5 @@
 # stillalive-os
-Portal ending "Still Alive" as operating system
+Portal ending "Still Alive" as operating system or BIOS extension
 
 https://www.youtube.com/watch?v=sB0hh7UAAfA
 
@@ -18,11 +18,17 @@ https://www.youtube.com/watch?v=sB0hh7UAAfA
 
 ## Compiling
 nasm, gcc and mtools are required to compile.
-Simply run `make` to compile everything (bootloader, code and image)
+Simply run `make` to compile everything (bootloader, code and floppy image or BIOS ROM).
+
+Use the `make floppy.img` command to assemble the floppy.img image.
+
+Use the `make stillalive.rom` command to build the BIOS ROM image file stillalive.rom.
+
 
 ## Running
 Tests: `make runqemu` launches qemu with pcspeaker.
 To run on a real device simply flash image on floppy or even USB drive.
 
+Or use `make runrom` command to run the BIOS extension in the emulation.
 
 _Please don't use this as x86 operating system template. For template you can see my another project - BruhOS that this project is based on (outdated)_

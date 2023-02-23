@@ -1,5 +1,6 @@
 .PHONY: all
-all: floppy.img
+
+all: floppy.img stillalive.rom
 
 SRC = data.c
 SRC += disk.c
@@ -11,6 +12,18 @@ SRC += memaccess.c
 SRC += misc.c
 SRC += linker.ld
 SRC += entry.S
+
+stillalive.rom: loader.bin demo.bin addchecksum
+	dd if=/dev/zero of=$@ bs=1 count=32768
+	dd if=loader.bin of=$@ bs=1 conv=notrunc
+	dd if=demo.bin of=$@ bs=1 conv=notrunc seek=512
+	./addchecksum $@ || rm $@
+
+loader.bin: loader.asm
+	nasm $< -fbin -o $@
+
+addchecksum: addchecksum.c
+	gcc -o $@ $< -Wall
 
 floppy.img: boot.bin demo.bin
 	mformat -i floppy.img -f 1440 -C -v FLOPPY -B boot.bin
@@ -33,3 +46,5 @@ clean:
 runqemu: floppy.img
 	qemu-system-i386 -fda ./floppy.img -soundhw pcspk
 
+runrom: stillalive.rom
+	qemu-system-i386  -net none -option-rom stillalive.rom -soundhw pcspk

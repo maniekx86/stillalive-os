@@ -1,5 +1,8 @@
-fdd/
 *.swp
+*.img
+*.rom
 *.elf
-*.bin
 *.o
+*.bin
+addchecksum
+
