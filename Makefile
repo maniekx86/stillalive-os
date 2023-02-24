@@ -14,11 +14,7 @@ SRC += entry.S
 
 floppy.img: boot.bin demo.bin
 	mformat -i floppy.img -f 1440 -C -v FLOPPY -B boot.bin
-	mkdir -p fdd/
-	sudo mount -t msdos -o loop $@ fdd/
-	sudo cp demo.bin fdd/
-	sudo umount fdd/
-	rm -rf fdd/
+	mcopy -i floppy.img demo.bin ::/
 
 demo.bin: $(SRC)
 	as -ggdb3 --32 -o entry.o entry.S
