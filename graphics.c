@@ -37,7 +37,7 @@ void setcursor(u8 x, u8 y) {
     __asm__(
         "int $0x10"
         :
-        : "a"((0x02 << 8) | 0), "d"((y << 8) | x));
+        : "a"((0x02 << 8) | 0), "d"((y << 8) | x), "b"(0));
 }
 
 void getcursor(u8 *x, u8 *y) {
@@ -45,7 +45,7 @@ void getcursor(u8 *x, u8 *y) {
     __asm__(
         "int $0x10"
         : "=d"(out)
-        : "a"((0x03 << 8) | 0));
+        : "a"((0x03 << 8) | 0), "b"(0));
     *x = (out >> 0) & 0xFF;
     *y = (out >> 8) & 0xFF;
 }
