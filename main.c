@@ -2,7 +2,7 @@
 /*
 	Main file
 
-	Written by maniek86 2022 (c) 
+	Written by maniek86 2023 (c) 
 */
 #include <stdint.h>
 
@@ -368,6 +368,10 @@ void main(void) {
 	sleep(3000);
 	resetDisk(0);
 	setvideomode(0x6A);
+	__asm__(
+        	"int $0x10"
+        	:
+        	: "a"(0x1124), "b"(03)); // http://www.techhelpmanual.com/165-int_10h_1124h__setup_rom_8x16_font_for_graphics_mode.html
 	hide_cursor();
 
 	setcursor(0,0);
