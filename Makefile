@@ -2,16 +2,25 @@
 
 all: floppy.img stillalive.rom
 
-SRC = data.c
-SRC += disk.c
-SRC += graphics.c
-SRC += ivt.c
-SRC += main.c
-SRC += math.c
-SRC += memaccess.c
-SRC += misc.c
-SRC += linker.ld
-SRC += entry.S
+CC = gcc
+
+CFLAGS = -m16 -c -ggdb3 -fno-PIE -ffreestanding -nostartfiles -nostdlib -std=c11
+
+OBJ = main.o    \
+	misc.o \
+	music.o \
+	data.o \
+	math.o \
+	ivt.o \
+	memaccess.o \
+	graphics.o \
+	disk.o
+
+%.o: %.c
+	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
+
+entry.o: entry.S
+	as -ggdb3 --32 -o entry.o entry.S
 
 stillalive.rom: loader.bin demo.bin addchecksum
 	dd if=/dev/zero of=$@ bs=1 count=32768
@@ -29,10 +38,8 @@ floppy.img: boot.bin demo.bin
 	mformat -i floppy.img -f 1440 -C -v FLOPPY -B boot.bin
 	mcopy -i floppy.img demo.bin ::/
 
-demo.bin: $(SRC)
-	as -ggdb3 --32 -o entry.o entry.S
-	gcc -m16 -c -ggdb3 -fno-PIE -ffreestanding -nostartfiles -nostdlib -o main.o -std=c11 main.c 
-	ld -m elf_i386 -o main.elf -T linker.ld entry.o main.o
+demo.bin: $(OBJ) entry.o $(OBJ)
+	ld -m elf_i386 -o main.elf -T linker.ld entry.o $(OBJ)
 	objcopy -O binary main.elf demo.bin
 
 boot.bin: bootloader.asm

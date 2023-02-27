@@ -4,20 +4,10 @@
 
 	Written by maniek86 2022 (c) 
 */
+#include "typedef.h"
+#include "misc.h"
 
-static inline void outb(u16 port, u8 val) {
-    __asm volatile("outb %0, %1"
-                   :
-                   : "a"(val), "Nd"(port));
-}
-static inline u8 inb(u16 port)
-{
-    u8 ret;
-    __asm volatile ( "inb %1, %0"
-                   : "=a"(ret)
-                   : "Nd"(port) );
-    return ret;
-}
+extern u32 time_ms;
 
 void my_reverse(char str[], int len)
 {

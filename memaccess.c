@@ -5,29 +5,14 @@
 	Not written by maniek86 2022 (c) - https://stackoverflow.com/questions/37354717/displaying-text-video-memory-at-0xb8000-without-using-the-c-library
 */
 
+#include "typedef.h"
+#include "memaccess.h"
 
-#define fastcall __attribute__((regparm(3)))
-#define asmlinkage __attribute__((regparm(0)))
-
-extern fastcall void dispchar(uint16_t celldata, uint16_t offset);
-extern fastcall uint16_t getchar(uint16_t offset);
-
-extern fastcall uint32_t getset_fs(uint32_t segment);
-extern fastcall void set_fs(uint32_t segment);
-extern fastcall uint32_t set_videomode_fs(void);
-static inline uint16_t tm_charattr_to_celldata(uint8_t ochar, uint8_t attr);
-
-int VIDEO_SEG=0xa000;
+static int VIDEO_SEG = 0xa000;
 
 void set_video_seg(int seg) {
-    VIDEO_SEG=seg;
+    VIDEO_SEG = seg;
 }
-
-static inline uint16_t chr(uint8_t ochar, uint8_t attr)
-{
-    return (uint16_t) (attr << 8) | (uint8_t) ochar;
-}
-
 
 /* Display character with FS change */
 fastcall void dispchar(uint16_t celldata, uint16_t offset)

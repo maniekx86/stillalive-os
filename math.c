@@ -5,7 +5,6 @@
 	Written by maniek86 2022 (c) 
 */
 
-
 const double PI=3.1415926535897932384650288;
 
 double sin(double x){ 
