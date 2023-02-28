@@ -34,36 +34,6 @@ u8 cursorblinken = 0;
 u8 cursorblinktick = 0;
 u16 cursort = 0;
 
-void nmi_handler() {
-	__asm("pusha");
-
-	__asm("nop;nop;nop;nop");
-	outb(0x20, 0x20);
-	__asm("popa;leave;iret");
-}
-
-char tmpstr[10];
-
-void keyboard_hanlder() {
-	__asm("pusha");
-
-	u8 key=inb(0x60);
-	u8 press=0;
-	if(key>127) { // key press
-		press=1;
-		qemu_debugcon("press");
-	}
-	key=key%128;
-	itoa(key,tmpstr,10);
-	qemu_debugcon(tmpstr);
-
-
-
-	__asm("nop;nop;nop;nop");
-	outb(0x20, 0x20);
-	__asm("popa;leave;iret");
-}
-
 void pic_handler() { // PIC is set to 1000 Hz
 	__asm("pusha");
 
@@ -102,16 +72,12 @@ void pic_handler() { // PIC is set to 1000 Hz
 void interrupt_setup() {
 	set_timer_hz(1000);
 
-	ivt_set_callback(&nmi_handler,2);
 	ivt_set_callback(&pic_handler,8); //8-8=irq 0
-	ivt_set_callback(&keyboard_hanlder,9); //9-8=irq 1
 }
 
 void csetpix(u8 x,u8 y,u8 c) {
 	dispchar(chr(c,14),((y*80)+x)*2);
 }
-
-char intstr[18]; // generic string for displaying numbers
 
 void drawascii(const char *s,u8 color) {
 	u8 dontpe=0;
