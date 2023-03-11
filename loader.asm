@@ -18,14 +18,4 @@ _init:
     rep
     movsw
 
-; inicjalizacja steka (0000:fffe) i segmentu dannyh
-
-;    mov ax,0xfffe
-;    mov sp,ax
-;    xor ax,ax
-;    mov ss,ax
-
-;    mov ax,load_addr
-;    mov ds,ax
-
     jmp load_addr:0000
