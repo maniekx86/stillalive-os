@@ -8,6 +8,7 @@
 #include "memaccess.h"
 #include "typedef.h"
 #include "graphics.h"
+#include "misc.h"
 
 static char *vgamem = (u8*)0xB000;
 
@@ -70,4 +71,13 @@ void setvideomode(u8 mode) {
         "int $0x10"
         :
         : "a"((0x00 << 8) | mode));
+}
+
+void vga_set_plane(uint8_t p) {
+    p &= 3;
+    uint8_t pmask = 1 << p;
+    outb(0x3CE, 4);
+    outb(0x3CF, p);
+    outb(0x3C4, 2);
+    outb(0x3C5, pmask);
 }

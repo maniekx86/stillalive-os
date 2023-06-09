@@ -8,4 +8,6 @@ void setcursor(u8 x, u8 y);
 void getcursor(u8 *x, u8 *y);
 void newline(void);
 void setvideomode(u8 mode);
+void vga_set_plane(uint8_t p);
+
 #endif //__GRAPHICS_H__

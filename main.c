@@ -34,6 +34,8 @@ u8 cursorblinken = 0;
 u8 cursorblinktick = 0;
 u16 cursort = 0;
 
+u8 ascii_charmap[16][16]; // We need: . , - : ; / H @ M + X = # % $ for ascii arts
+
 void pic_handler() { // PIC is set to 1000 Hz
 	__asm("pusha");
 
@@ -75,43 +77,90 @@ void interrupt_setup() {
 	ivt_set_callback(&pic_handler,8); //8-8=irq 0
 }
 
-void csetpix(u8 x,u8 y,u8 c) {
-	dispchar(chr(c,14),((y*80)+x)*2);
-}
-
-void drawascii(const char *s,u8 color) {
+void drawascii(const char *s,u8 color,u8 cx,u8 cy) {
 	u8 dontpe=0;
+	u16 tx,ty;
+	u16 ttx, tty;
+
 	if(playmusic==0) {
 		dontpe=1;
 	}
 	playmusic=0;
-	u8 cx,cy;
-	getcursor(&cx,&cy);
-	u8 tx,ty;
-	for(int ix=0;ix<40;ix++) {
-		for(int iy=0;iy<16;iy++) {
-			disppixel(0,(iy+cy*16)*100+cx+ix);
+
+	for(ty=0;ty<16;ty++) {
+		for(tx=0;tx<40;tx++) { // Clear last ascii art
+			disppixel(0,(ty+cy*16)*100+tx+cx);
 		}
 	}
-	setcursor(cx,cy);
+
+	ty=cy;
+	tx=0;
+
     while(*s) {
         if(*s=='\n') {
-			cy++;
-            setcursor(cx,cy);
-			for(int ix=0;ix<40;ix++) {
-				for(int iy=0;iy<16;iy++) {
-					disppixel(0,(iy+cy*16)*100+cx+ix);
-				}
-			}
+	    ty++;
+            tx=0;
+            vga_set_plane(1);
+            for(tty=0;tty<16;tty++) {
+		for(ttx=0;ttx<40;ttx++) { 
+		   disppixel(0,(tty+ty*16)*100+ttx+cx);
+		}
+            }
+            vga_set_plane(2);
+            for(tty=0;tty<16;tty++) {
+		for(ttx=0;ttx<40;ttx++) { 
+		   disppixel(0,(tty+ty*16)*100+ttx+cx);
+		}
+            }
         } else if(*s==' ') {
-			getcursor(&tx,&ty);
-			setcursor(tx+1,ty);
+		tx++;
 		} else {
-            bios_printchar(*s,color);
+			u8 charindex;
+			// looks bad, but it should be fastest
+			switch(*s) {
+				case '.': charindex=0; break;
+				case ',': charindex=1; break;
+				case '-': charindex=2; break;
+				case ':': charindex=3; break;
+				case ';': charindex=4; break;
+				case '/': charindex=5; break;
+				case 'H': charindex=6; break;
+				case '@': charindex=7; break;
+				case 'M': charindex=8; break;
+				case '+': charindex=9; break;
+				case 'X': charindex=10; break;
+				case '=': charindex=11; break;
+				case '#': charindex=12; break;
+				case '%': charindex=13; break;
+				case '$': charindex=14; break;
+				default: charindex=15; break;
+				
+			}
+			vga_set_plane(1);
+            for(int b=0;b<16;b++) {
+				disppixel(ascii_charmap[b][charindex],(ty*16+b)*100+cx+tx);
+			}
+			vga_set_plane(2);
+            for(int b=0;b<16;b++) {
+				disppixel(ascii_charmap[b][charindex],(ty*16+b)*100+cx+tx);
+			}
+			tx++;
         }
         s++;
     }
+	vga_set_plane(0);
 	if(dontpe==0) playmusic=1;
+}
+
+void prepare_ascii() { // Render characters to ascii_charmap[] before demo
+	char to_render[] = {'.',',','-',':',';','/','H','@','M','+','X','=','#','%','$',' '};
+	for(int i=0;i<sizeof(to_render);i++) {
+		setcursor(0,0);	
+		bios_printchar(to_render[i],15);
+		for(int b=0;b<16;b++) {
+			ascii_charmap[b][i]=getpixel(b*100);
+		}
+	}
 }
 
 
@@ -184,19 +233,17 @@ void typeslow(const char *s, u8 time) {
 	if(s[0]=='0'||s[0]=='1'||s[0]=='2'||s[0]=='3'||s[0]=='4'||s[0]=='5'||s[0]=='6'||s[0]=='7'||s[0]=='8'||s[0]=='9') {
 		skipfirstchar=1;
 		cursorblinktick=0;
-		setcursor(55,16);
-		if(s[0]=='0') drawascii(text_ascii_0,6);
-		if(s[0]=='1') drawascii(text_ascii_1,6);
-		if(s[0]=='2') drawascii(text_ascii_2,6);
-		if(s[0]=='3') drawascii(text_ascii_3,6);
-		if(s[0]=='4') drawascii(text_ascii_4,6);
-		if(s[0]=='5') drawascii(text_ascii_5,6);
-		if(s[0]=='6') drawascii(text_ascii_6,6);
-		if(s[0]=='7') drawascii(text_ascii_7,6);
-		if(s[0]=='8') drawascii(text_ascii_8,6);
-		if(s[0]=='9') drawascii(text_ascii_9,6);
+		if(s[0]=='0') drawascii(text_ascii_0,6,55,16);
+		if(s[0]=='1') drawascii(text_ascii_1,6,55,16);
+		if(s[0]=='2') drawascii(text_ascii_2,6,55,16);
+		if(s[0]=='3') drawascii(text_ascii_3,6,55,16);
+		if(s[0]=='4') drawascii(text_ascii_4,6,55,16);
+		if(s[0]=='5') drawascii(text_ascii_5,6,55,16);
+		if(s[0]=='6') drawascii(text_ascii_6,6,55,16);
+		if(s[0]=='7') drawascii(text_ascii_7,6,55,16);
+		if(s[0]=='8') drawascii(text_ascii_8,6,55,16);
+		if(s[0]=='9') drawascii(text_ascii_9,6,55,16);
 		cursorblinktick=1;
-		setcursor(cx,cy);
 	}
 	int i=0;
     while(*s) {
@@ -241,6 +288,8 @@ void main(void) {
         	:
         	: "a"(0x1124), "b"(03)); // http://www.techhelpmanual.com/165-int_10h_1124h__setup_rom_8x16_font_for_graphics_mode.html
 	hide_cursor();
+
+	prepare_ascii();
 
 	setcursor(0,0);
 	for(u8 x=0;x<50;x++) {
