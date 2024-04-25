@@ -53,7 +53,7 @@ char* itoa(int num, char* str, int base)
     return str;
 }
 
-void sleep(u32 ms) {
+void __attribute__((optimize("O0"))) sleep(u32 ms) {
 	u32 start=time_ms;
 	while(1) {
 	if(start+ms<time_ms) break;

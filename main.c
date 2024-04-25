@@ -2,7 +2,7 @@
 /*
 	Main file
 
-	Written by maniek86 2023 (c) 
+	Written by maniek86 2024 (c) 
 */
 #include "typedef.h"
 #include "misc.h"
@@ -14,7 +14,15 @@
 #include "memaccess.h"
 #include "disk.h"
 
+extern void _gounreal(); // Enable A20 gate and go unreal mode
+extern uint8_t _getmem(u32);
+extern uint16_t _getmemw(u32);
+
+
 u32 time_ms;
+
+u8 graphics_mode = 0; // 0 - legacy (4bpp), 1 - modern (16bpp)
+ 
 
 u8 playmusic = 0;
 u8 playendmusic = 0;
@@ -34,31 +42,92 @@ u8 cursorblinken = 0;
 u8 cursorblinktick = 0;
 u16 cursort = 0;
 
-u8 ascii_charmap[16][16]; // We need: . , - : ; / H @ M + X = # % $ for ascii arts
+u8 ascii_charmap[16][16]; // We need: . , - : ; / H @ M + X = # % $ for ascii arts (4bpp)
 
-void pic_handler() { // PIC is set to 1000 Hz
+
+// printchar and print for the demo routines (print properly no matter if 4bpp or 16bpp fb)
+u8 cur_x=0;
+u8 cur_y=0;
+void setcursor(u8 x, u8 y) {
+    if(graphics_mode==0) { // text mode/4bpp
+        vga_setcursor(x, y);
+    } else { // 16bpp
+        cur_x = x;
+        cur_y = y;
+    }
+}
+void getcursor(u8 *x, u8 *y) {
+    if(graphics_mode==0) { // text mode/4bpp
+		vga_getcursor(x,y);
+    } else { // 16bpp
+        *x = cur_x;
+        *y = cur_y;
+    }
+}
+void newline() {
+    if(graphics_mode==0) { // text mode/4bpp
+        vga_newline();
+    } else {
+        cur_x=0;
+        cur_y++;
+    }
+}
+void printchar(char c) {
+    if(graphics_mode==0) { // 4bpp
+        bios_printchar(c,6);
+    } else { // 16bpp
+        for(int y=0;y<16;y++) {
+            u8 line = VGA_FONT[c*16+y];
+            for(int x=0;x<8;x++) {
+                u16 color=0;
+                if((line>>(7-x)) & 1) {
+                    color=get_orange_color();                
+                }
+	            disppixel_16bpp(color, cur_x*8+x, cur_y*16+y);
+            }
+        }
+        cur_x++;
+    }
+}
+
+void print(const char *s) {
+    if(graphics_mode==0) { // 4bpp
+        bios_print(s, 6);
+    } else { //16bpp
+        while(*s) {
+            if(*s=='\n') {
+                newline();
+            } else {
+                printchar(*s);
+            }
+            s++;
+        }
+    }
+}
+
+void __attribute__((optimize("O0"))) pic_handler() { // PIC is set to 125 Hz (previously was 1000 Hz)
 	__asm("pusha");
 
-	time_ms=time_ms+1;
-	if(cursorblinktick) cursort++;
-	music_handle();
-	music_handle2();
+	time_ms=time_ms+8;
+	if(cursorblinktick) cursort=cursort+8;
+	music_handle(); // main song
+	music_handle2(); // song after main
 
+    // cursor blinking routine
 	u8 lx,ly;
-
 	if(cursort>=500) {
 		cursort=0;
 		getcursor(&lx,&ly);
 		if(cursorblinks==1) {
 			if(cursorblinken==1) {
 				setcursor(cursorblinkx,cursorblinky);
-				bios_printchar('_',6);
+				printchar('_');
 			}
 			cursorblinks=0;
 		} else {
 			if(cursorblinken==1) {
 				setcursor(cursorblinkx,cursorblinky);
-				bios_printchar(' ',6);
+				printchar(' ');
 			}
 			cursorblinks=1;
 		}
@@ -72,106 +141,145 @@ void pic_handler() { // PIC is set to 1000 Hz
 } 
 
 void interrupt_setup() {
-	set_timer_hz(1000);
+	set_timer_hz(125);
 
 	ivt_set_callback(&pic_handler,8); //8-8=irq 0
 }
+
 
 void drawascii(const char *s,u8 color,u8 cx,u8 cy) {
 	u8 dontpe=0;
 	u16 tx,ty;
 	u16 ttx, tty;
+	int ptr=0;
+
 
 	if(playmusic==0) {
 		dontpe=1;
 	}
 	playmusic=0;
 
-	for(ty=0;ty<16;ty++) {
-		for(tx=0;tx<40;tx++) { // Clear last ascii art
-			disppixel(0,(ty+cy*16)*100+tx+cx);
-		}
-	}
+	//for(ty=0;ty<16;ty++) {
+	//	for(tx=0;tx<40;tx++) { // Clear last ascii art
+	//		disppixel(0,(ty+cy*16)*100+tx+cx);
+	//	}
+	//}
 
-	ty=cy;
-	tx=0;
-
-    while(*s) {
-        if(*s=='\n') {
-	    ty++;
+    ty=cy;
+    tx=0;
+    
+    while(1) {
+        if(s[ptr]=='\n' || s[ptr]=='\0') {
+            while(tx<40) {
+                // draw spaces to clear old ascii art
+                if(graphics_mode==0) { // legacy
+                    vga_set_plane(1);
+                    for(int b=0;b<16;b++) {
+			            disppixel(0,(ty*16+b)*100+cx+tx);
+			        }
+                    vga_set_plane(2);
+                    for(int b=0;b<16;b++) {
+			            disppixel(0,(ty*16+b)*100+cx+tx);
+			        }
+			    } else if(graphics_mode==1) {
+			        for(int y=0;y<16;y++) {
+		                for(int x=0;x<8;x++) {     
+            		        disppixel_16bpp(0, (cx+tx)*8+x, ty*16+y);
+		                }
+		            }
+                }
+			    tx++;
+            }
+            if(s[ptr]=='\0') break;
+            ty++;
             tx=0;
-            vga_set_plane(1);
-            for(tty=0;tty<16;tty++) {
-		for(ttx=0;ttx<40;ttx++) { 
-		   disppixel(0,(tty+ty*16)*100+ttx+cx);
-		}
-            }
-            vga_set_plane(2);
-            for(tty=0;tty<16;tty++) {
-		for(ttx=0;ttx<40;ttx++) { 
-		   disppixel(0,(tty+ty*16)*100+ttx+cx);
-		}
-            }
-        } else if(*s==' ') {
-		tx++;
-		} else {
-			u8 charindex;
-			// looks bad, but it should be fastest
-			switch(*s) {
-				case '.': charindex=0; break;
-				case ',': charindex=1; break;
-				case '-': charindex=2; break;
-				case ':': charindex=3; break;
-				case ';': charindex=4; break;
-				case '/': charindex=5; break;
-				case 'H': charindex=6; break;
-				case '@': charindex=7; break;
-				case 'M': charindex=8; break;
-				case '+': charindex=9; break;
-				case 'X': charindex=10; break;
-				case '=': charindex=11; break;
-				case '#': charindex=12; break;
-				case '%': charindex=13; break;
-				case '$': charindex=14; break;
-				default: charindex=15; break;
-				
-			}
-			vga_set_plane(1);
-            for(int b=0;b<16;b++) {
-				disppixel(ascii_charmap[b][charindex],(ty*16+b)*100+cx+tx);
-			}
-			vga_set_plane(2);
-            for(int b=0;b<16;b++) {
-				disppixel(ascii_charmap[b][charindex],(ty*16+b)*100+cx+tx);
-			}
-			tx++;
+	    } else {
+		    u8 charindex;
+		    // looks bad, but it should be fastest
+		    switch(s[ptr]) {
+			    case '.': charindex=0; break;
+			    case ',': charindex=1; break;
+			    case '-': charindex=2; break;
+			    case ':': charindex=3; break;
+			    case ';': charindex=4; break;
+			    case '/': charindex=5; break;
+			    case 'H': charindex=6; break;
+			    case '@': charindex=7; break;
+			    case 'M': charindex=8; break;
+			    case '+': charindex=9; break;
+			    case 'X': charindex=10; break;
+			    case '=': charindex=11; break;
+			    case '#': charindex=12; break;
+			    case '%': charindex=13; break;
+			    case '$': charindex=14; break;
+			    default: charindex=15; break;
+			    
+		    }
+		    if(graphics_mode==0) { // legacy
+                vga_set_plane(1);
+                for(int b=0;b<16;b++) {
+			        disppixel(ascii_charmap[b][charindex],(ty*16+b)*100+cx+tx);
+		        }
+		        vga_set_plane(2);
+                for(int b=0;b<16;b++) {
+			        disppixel(ascii_charmap[b][charindex],(ty*16+b)*100+cx+tx);
+		        }
+		    } else if(graphics_mode==1) { // 16bpp
+		        for(int y=0;y<16;y++) {
+		            u8 line = VGA_FONT[s[ptr]*16+y];
+		            for(int x=0;x<8;x++) {
+		                u16 color=0;
+		                if((line>>(7-x)) & 1) {
+                            color=get_orange_color();                
+		                }
+        		        disppixel_16bpp(color, (cx+tx)*8+x, ty*16+y);
+		            }
+		        }
+		    }
+		    tx++;
         }
-        s++;
+        ptr++;
     }
-	vga_set_plane(0);
+    
+	if(graphics_mode==0) vga_set_plane(0);
 	if(dontpe==0) playmusic=1;
 }
 
-void prepare_ascii() { // Render characters to ascii_charmap[] before demo
-	char to_render[] = {'.',',','-',':',';','/','H','@','M','+','X','=','#','%','$',' '};
-	for(int i=0;i<sizeof(to_render);i++) {
-		setcursor(0,0);	
-		bios_printchar(to_render[i],15);
-		for(int b=0;b<16;b++) {
-			ascii_charmap[b][i]=getpixel(b*100);
-		}
+const char to_render[16] = {'.',',','-',':',';','/','H','@','M','+','X','=','#','%','$',' '}; // defining this inside prepare_ascii() causes freeze... 
+	
+void prepare_ascii() { // Render characters to ascii_charmap[] before demo (only 4bpp)
+    if(graphics_mode==1) return;
+
+	for(int i=0;i<16;i++) {
+		vga_setcursor(0,0);
+	    bios_printchar(to_render[i],15);
+        for(int b=0;b<16;b++) {
+             // legacy 4bpp
+            ascii_charmap[b][i]=getpixel(b*100);		    
+        }		
 	}
+    
 }
 
 
 void clear() {
-	for(int ix=0;ix<47;ix++) {
-		for(int iy=0;iy<33*16;iy++) {
-			disppixel(0,(iy+16)*100+1+ix);
-		}
-	}
+    if(graphics_mode==0) { // legacy 4bpp
+	    for(int ix=0;ix<47;ix++) {
+		    for(int iy=0;iy<33*16;iy++) {
+			    disppixel(0,(iy+16)*100+1+ix);
+		    }
+	    }    
+    } else if(graphics_mode==1) { // 16bpp
+        for(int ix=0;ix<47*8;ix++) {
+		    for(int iy=0;iy<33*16;iy++) {
+			 	disppixel_16bpp(0, 8+ix, 8+iy);
+		    }
+	    }    
+    }
+    
 }
 
+// This function is also responsible for handling events (like ascii draw)
 void typeslow(const char *s, u8 time) {
 	u8 cx,cy;
 	u8 donewline=0;
@@ -181,7 +289,7 @@ void typeslow(const char *s, u8 time) {
 	getcursor(&cx,&cy);
 
 	setcursor(cursorblinkx,cursorblinky);
-	bios_printchar(' ',6);
+	printchar(' ');
 	setcursor(cx,cy);
 
 	if(s[0]=='{') { // 2
@@ -252,9 +360,9 @@ void typeslow(const char *s, u8 time) {
 		getcursor(&tx,&ty);
 		cursorblinkx=tx+1;
 		cursorblinky=ty;
-        bios_printchar(*s,6);
+        printchar(*s);
 		if(cursorblinks==0) {
-			bios_printchar('_',6);
+			printchar('_');
 			setcursor(tx+1,ty);
 		}
 		sleep(time);
@@ -265,63 +373,74 @@ void typeslow(const char *s, u8 time) {
     }
 	if(donewline) {
 		cy++;
-		bios_printchar(' ',6 );
+		printchar(' ');
 		cursorblinkx=2;
 		cursorblinky=cy;
         setcursor(1,cy);
 	}
-	if(!skipspace) bios_printchar(' ',6);
+	if(!skipspace) printchar(' ');
 }
+
 
 void main(void) {
 	u8 cx,cy;
 	bios_print(text_startup,7);
+	newline();
+	bios_print("[Test version (16/03/2024)]", 7);
+	_gounreal(); 
+	bios_printchar(' ',7);
+	bios_printchar('.',7);
 	
 	__asm("cli");
 	interrupt_setup();
 	__asm("sti");
 	sleep(3000);
-	resetDisk(0);
-	setvideomode(0x6A);
-	__asm__(
-        	"int $0x10"
-        	:
-        	: "a"(0x1124), "b"(03)); // http://www.techhelpmanual.com/165-int_10h_1124h__setup_rom_8x16_font_for_graphics_mode.html
-	hide_cursor();
+	resetDisk(0); // to stop floppy from spinning?
+	bios_printchar('.',7);
+	
+	graphics_mode = vesa_switch_to_800_600(); // graphics.c
 
+	hide_cursor();
+	
+    // Get font (if 4bpp)
 	prepare_ascii();
 
+    // Draw borders
 	setcursor(0,0);
+
 	for(u8 x=0;x<50;x++) {
-		bios_printchar('-',6);
+		printchar('-');
 	}
-	bios_printchar(' ',6);
+
+
+	printchar(' ');
 	for(u8 x=0;x<48;x++) {
-		bios_printchar('-',6);
+		printchar('-');
 	}
 
 	for(u8 y=1;y<34;y++) {
 		setcursor(0,y);
-		bios_printchar('|',6);
+		printchar('|');
 		setcursor(49,y);
-		bios_printchar('|',6);
+		printchar('|');
 		if(y<16) {
 			setcursor(50,y);
-			bios_printchar('|',6);
+			printchar('|');
 			setcursor(99,y);
-			bios_printchar('|',6);
+			printchar('|');
 		}
 	}
 
 	setcursor(0,34);
 	for(u8 x=0;x<50;x++) {
-		bios_printchar('-',6);
+		printchar('-');
 	}
 
 	setcursor(51,15);
 	for(u8 x=0;x<48;x++) {
-		bios_printchar('-',6);
+		printchar('-');
 	}
+	// Start
 
 	newline();
 	cursorblinken=1;
@@ -366,9 +485,22 @@ void main(void) {
 		}
     }
 	cursorblinken=0;
-	setvideomode(0);
-	setcursor(0,0);
-	bios_print("THANK YOU FOR PARTICIPATING\nIN THIS\nENRICHMENT CENTER ACTIVITY!!",7);
+	// clear entire screen
+	if(graphics_mode==0) {
+	    for(int x=0;x<100;x++) { // 800 / 8 = 100
+	        for(int y=0;y<640;y++) {
+	            disppixel(0, x+y*100);
+	        }
+	    }
+	} else if(graphics_mode==1) {
+        for(int x=0;x<800;x++) {
+            for(int y=0;y<600;y++) {
+               	disppixel_16bpp(0, x, y);
+            }
+        }
+    }
+	setcursor(17,17);
+	print("THANK YOU FOR PARTICIPATING IN THIS ENRICHMENT CENTER ACTIVITY!!");
 	musicpos=0;
 	nexttick=0;
 	playendmusic=1;

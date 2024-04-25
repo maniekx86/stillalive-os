@@ -32,4 +32,6 @@ extern const char text_t3_0[];
 extern const char text_t3_1[];
 extern const char text_t3_2[];
 
+extern const uint8_t VGA_FONT[];
+
 #endif //__DATA_H__

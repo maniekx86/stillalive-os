@@ -27,7 +27,7 @@ extern int currenttext;
 
 void music_handle() {
 	if(playmusic == 0) return;
-	nexttick++;
+	nexttick=nexttick+8;
 	if(nexttick < 63) return; // 120 bpm
 	nexttick = 0;
 	if(musicdata[musicpos] == 0) {
@@ -61,17 +61,17 @@ void music_handle() {
 
 void music_handle2() {
 	if(playendmusic == 0) return;
-	nexttick++;
+	nexttick=nexttick+8;
 	if(nexttick < 63) return; // 120 bpm
 	nexttick = 0;
 	if(musicdata2[musicpos] == 0) {
-		if(musicdata2[musicpos+1] != 0) {
+		if(musicdata2[musicpos+1] != 0 && musicdata2[musicpos+1] != 254) {
 			nosound();
 		}
 	} else if(musicdata2[musicpos] == 255) {
 		nosound();
 		outb(0x80, 255);
-	} else if(musicdata2[musicpos] == 254) {
+	} else if(musicdata2[musicpos] == 254) { // looping
 		musicpos = -1;
 		outb(0x80,254);
 	} else {
